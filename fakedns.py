@@ -1294,35 +1294,48 @@ class FakeDnsServer:
 
         self.debug_msg(f"FQDN = {fqdn}, domain = {domain}")
 
-        # First check if the fqdn should be ignored
-        if fqdn_lower in self.ignore:
-            self.debug_msg(f"Found {fqdn} in ignore list (as FQDN)")
-            self.log_msg(f"Ignoring request for {fqdn}")
+        # If '.' is in ignore, ignore everything unless explicitly resolved
+        if '.' in self.ignore:
+            if fqdn_lower in self.resolve:
+                self.debug_msg(f"Explicitly resolving {fqdn} (FQDN match despite global ignore)")
+                ip = self.resolve[fqdn_lower]
 
-        # Second check if the fqdn should resolve to a specific
-        # IP address
-        elif fqdn_lower in self.resolve:
-            self.debug_msg(f"Found {fqdn} in resolve list (as FQDN)")
-            ip = self.resolve[fqdn_lower]
+            elif domain_lower in self.resolve:
+                self.debug_msg(f"Explicitly resolving {fqdn} (domain match despite global ignore)")
+                ip = self.resolve[domain_lower]
 
-        # Third check if the domain should be ignored
-        elif domain_lower in self.ignore:
-            self.debug_msg(f"Found {domain} in ignore list (as domain)")
-            self.log_msg(f"Ignoring request for {domain}")
+            else:
+                self.debug_msg(f"Global ignore (.) is active. Ignoring {fqdn}")
+                self.log_msg(f"Ignoring request for {fqdn} due to global ignore")
+                return  # or set ip = None or whatever is appropriate for "ignore"
 
-        # Fourth check if the domain should be resolved to a specific IP
-        elif domain_lower in self.resolve:
-            self.debug_msg(f"Found {domain} in resolve list (as domain)")
-            ip = self.resolve[domain_lower]
-
-        # Finally send back the default IP address
         else:
-            self.debug_msg(f"Sending default_ip for {fqdn}")
-            ip = self.default_ip
-        # end if
+            # First check if the fqdn should be ignored
+            if fqdn_lower in self.ignore:
+                self.debug_msg(f"Found {fqdn} in ignore list (as FQDN)")
+                self.log_msg(f"Ignoring request for {fqdn}")
+                return
 
-        if ip is None:
-            return
+            # Second check if the fqdn should resolve to a specific IP address
+            elif fqdn_lower in self.resolve:
+                self.debug_msg(f"Found {fqdn} in resolve list (as FQDN)")
+                ip = self.resolve[fqdn_lower]
+
+            # Third check if the domain should be ignored
+            elif domain_lower in self.ignore:
+                self.debug_msg(f"Found {domain} in ignore list (as domain)")
+                self.log_msg(f"Ignoring request for {domain}")
+                return
+
+            # Fourth check if the domain should be resolved to a specific IP
+            elif domain_lower in self.resolve:
+                self.debug_msg(f"Found {domain} in resolve list (as domain)")
+                ip = self.resolve[domain_lower]
+
+            # Finally send back the default IP address
+            else:
+                self.debug_msg(f"Sending default_ip for {fqdn}")
+                ip = self.default_ip
         # end if
 
         dns_resp = self.build_response(dns_req, ip)
